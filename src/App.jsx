@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import './App.css'
+import { Routes, Route, Link } from "react-router-dom";
 import { useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
+import Leaderboard from "./Leaderboard";
 
 function App() {
   const family = ["Justin", "Abir", "Elena", "Iyan", "Ryan", "Simran", "Joey", "Aka", "Fariha", "Adina", "Michelle", "Bishakh"];
@@ -41,10 +43,12 @@ function App() {
     setPages("");
   }
 
-  const totals = entries.reduce((account, curr) => {
-    account[curr.name] = (account[curr.name] || 0) + curr.pages;
-    return account;
-  }, {});
+  const totals = Object.fromEntries(family.map((name) => [name, 0]));
+
+  entries.forEach((entry) => {
+    totals[entry.name] += entry.pages;
+  });
+
 
   const groupTotal = entries.reduce((sum, entry) => sum + entry.pages, 0);
 
@@ -53,15 +57,20 @@ function App() {
   const leaderboard = Object.entries(totals).sort((a, b) => b[1] - a[1]);
 
   return (
+    <div style={{ maxWidth: 500, fontFamily: "sans-serif" }}>
+      <nav style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        <Link to="/">Log Pages</Link>
+        <Link to="/leaderboard">Leaderboard</Link>
+      </nav>
+      <Routes>
+        <Route
+          path="/"
+          element={
     <>
       <div style={{ padding:24 }}>
-        <h1>Reading Log</h1>
+        <h1>Inner Reading Challenge</h1>
 
         <h2>Goal:  {GOAL}  </h2>
-
-        <div>Group Pages Read: {groupTotal}</div>
-
-        <h2>Total Pages Left: {GOAL - groupTotal} ({progressPercent}%)</h2>
 
         <div style={{
           backgroundColor: "#eee",
@@ -69,6 +78,7 @@ function App() {
           height: "24px",
           width: "100%",
           overflow: "hidden",
+          position: "relative",
           marginTop: "8px"
         }}>
           {/* Inner bar */}
@@ -77,8 +87,25 @@ function App() {
             width: `${progressPercent}%`,
             height: "100%",
             transition: "width 0.3s ease"
-          }}></div>
+          }}>
+          </div>
+          <span
+                style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#000",
+                pointerEvents: "none",
+                }}
+            >
+                {groupTotal}/5000 Pages
+            </span>
         </div>
+  
 
         <form onSubmit={addEntry}>
           <select value={name} onChange={(e) => setName(e.target.value)}>
@@ -90,7 +117,18 @@ function App() {
             ))}
           </select>
           <input type="number" placeholder="Pages read" value={pages} onChange={(e) => setPages(e.target.value)}></input>
-          <button type="submit" disabled={!name || !pages}>Add</button>
+          <button
+            type="submit"
+            disabled={!name || !pages}
+            style={{
+              backgroundColor: !name || !pages ? "#ccc" : "#008f05",
+              color: !name || !pages ? "#666" : "white",
+              cursor: !name || !pages ? "not-allowed" : "pointer",
+            }}
+          >
+            Add
+          </button>
+
 
         </form>
 
@@ -113,6 +151,11 @@ function App() {
         </ol>
       </div>
     </>
+          }
+          />
+          <Route path="/leaderboard" element={<Leaderboard leaderboard={leaderboard} progressPercent={progressPercent} totalPages={groupTotal} />} />
+      </Routes>
+    </div>
   )
 }
 
