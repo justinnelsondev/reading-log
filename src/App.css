@@ -18,6 +18,20 @@
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
 
+.create-account-btn {
+  background-color: transparent;
+  color: white;
+  border-radius: 10px;
+  height: 25px;
+  font-size: 12px;
+  border: 1px solid white;
+  transition: background-color 0.2s ease;
+}
+
+.create-account-btn:hover {
+  background-color: grey;
+}
+
 @keyframes logo-spin {
   from {
     transform: rotate(0deg);
