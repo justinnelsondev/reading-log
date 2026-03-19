@@ -3,12 +3,17 @@ import './App.css'
 import { Routes, Route, Link, useNavigate, Navigate } from "react-router-dom";
 import Login from "./Login";
 import { useEffect } from 'react';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, getDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
 import Leaderboard from "./Leaderboard";
 import EntryForm from './EntryForm';
 import Register from './Register';
+import Profile from './Profile';
+import HomeIcon from '@mui/icons-material/Home';
+import LeaderboardIcon from '@mui/icons-material/Leaderboard';
+import PersonIcon from '@mui/icons-material/Person';
+
 
 function App() {
   const family = ["Justin", "Abir", "Elena", "Iyan", "Ryan", "Simran", "Joey", "Aka", "Fariha", "Adina", "Michelle", "Bishakh"];
@@ -57,30 +62,59 @@ function App() {
 
   
 
+  const giveKudos = async (entryId) => {
+    if (!user) return;
+
+    const entryRef = doc(db, "entries", entryId);
+    const entrySnap = await getDoc(entryRef);
+
+    if (!entrySnap.exists()) return;
+
+    const entryData = entrySnap.data();
+    const hasGiven = entryData.kudosBy?.includes(user.uid);
+
+    if (hasGiven) {
+      // Remove kudos
+      await updateDoc(entryRef, {
+        kudos: increment(-1),
+        kudosBy: arrayRemove(user.uid),
+      });
+    } else {
+      // Give kudos
+      await updateDoc(entryRef, {
+        kudos: increment(1),
+        kudosBy: arrayUnion(user.uid),
+      });
+    }
+  };
+
+
+  
+
 
   const addEntry = async (e) => {
     e.preventDefault();
     if (!pages) return;
-
+  
+    // 1️⃣ Add entry to entries collection
     await addDoc(collection(db, "entries"), {
       userId: auth.currentUser.uid,
-      userEmail: auth.currentUser.email,
+      name: name,               // use name field from user
       book,
       pages: Number(pages),
       kudos: 0,
       createdAt: serverTimestamp(),
     });
-
+  
+    // 2️⃣ Update user's totalPages in users collection
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    await updateDoc(userRef, {
+      totalPages: increment(Number(pages)),
+    });
+  
+    // 3️⃣ Clear form
     setBook("");
     setPages("");
-  }
-
-  const giveKudos = async (id) => {
-    const entryRef = doc(db, "entries", id);
-  
-    await updateDoc(entryRef, {
-      kudos: increment(1),
-    });
   };
 
   const totals = Object.fromEntries(family.map((name) => [name, 0]));
@@ -103,9 +137,17 @@ function App() {
   return (
     <div style={{ maxWidth: 500, fontFamily: "sans-serif" }}>
       <nav style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-        <Link to="/">Log Pages</Link>
-        <Link to="/leaderboard">Leaderboard</Link>
+        <Link to="/" style={{ display: "flex", alignItems: "center" }}>
+          <HomeIcon />
+        </Link>
+        <Link to="/leaderboard" style={{ display: "flex", alignItems: "center" }}>
+          <LeaderboardIcon />
+        </Link>
+        <Link to="/profile" style={{ display: "flex", alignItems: "center" }}>
+          <PersonIcon />
+        </Link>
       </nav>
+
       <Routes>
         <Route
           path="/"
@@ -192,12 +234,12 @@ function App() {
               </p>
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px" }}>
-                <button
+              <button
                   onClick={() => giveKudos(e.id)}
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#4da6ff",
+                    color: e.kudosBy?.includes(user.uid) ? "#ffbf00" : "#4da6ff", // gold if given
                     cursor: "pointer",
                     fontSize: "16px",
                   }}
@@ -213,9 +255,11 @@ function App() {
           }
           />
           <Route path="/leaderboard" element={<Leaderboard leaderboard={leaderboard} progressPercent={progressPercent} totalPages={groupTotal} />} />
-          <Route path="/entryForm" element={<EntryForm book={book} setBook={setBook} addEntry={addEntry} family={family} pages={pages} name={name} setName={setName} setPages={setPages}/>} />
+          <Route path="/entryForm" element={ <EntryForm book={book} setBook={setBook} addEntry={addEntry} pages={pages} setPages={setPages} entries={entries} user={user} /> }
+/>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/profile" element={<Profile user={user} entries={entries} />}/>
       </Routes>
     </div>
   )
